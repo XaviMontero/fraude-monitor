@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Story Map + Backlog — Motor de Predicción de Fraude</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0C1220; --panel:#131C2E; --panel-2:#1A2540; --line:#243252;
+    --ink:#E8EDF7; --muted:#8FA0BF; --dim:#5C6C8A;
+    --ok:#3DDC97; --warn:#FFB454; --bad:#FF6B6B; --accent:#5EA8FF; --purple:#B49CFF;
+    --mono:'IBM Plex Mono',monospace; --sans:'Space Grotesk',sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.5;padding-bottom:60px}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 20px}
+
+  header{border-bottom:1px solid var(--line);padding:28px 0 22px;margin-bottom:28px}
+  .eyebrow{font-family:var(--mono);font-size:12px;color:var(--accent);letter-spacing:.12em;text-transform:uppercase}
+  h1{font-size:clamp(22px,3.5vw,32px);font-weight:700;margin-top:6px}
+  .sub{color:var(--muted);font-size:14px;margin-top:4px}
+  .nav{margin-top:12px;font-family:var(--mono);font-size:12px}
+  .nav a{color:var(--accent);text-decoration:none;border:1px solid var(--line);padding:4px 12px;border-radius:20px}
+
+  h2{font-family:var(--mono);font-size:13px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin:36px 0 6px}
+  .h2sub{font-size:13px;color:var(--dim);margin-bottom:16px}
+
+  /* ---------- STORY MAP ---------- */
+  .smap-scroll{overflow-x:auto;padding-bottom:8px}
+  .smap{display:grid;grid-template-columns:repeat(5,minmax(200px,1fr));gap:12px;min-width:1040px}
+  .phase{background:var(--panel-2);border:1px solid var(--line);border-radius:10px 10px 0 0;padding:10px 14px}
+  .phase .ph{font-family:var(--mono);font-size:11px;color:var(--dim)}
+  .phase .nm{font-size:14px;font-weight:700;margin-top:2px}
+  .col{display:flex;flex-direction:column;gap:8px}
+  .story{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-size:12.5px;color:var(--muted)}
+  .story b{color:var(--ink);font-weight:500;display:block;font-size:13px;margin-bottom:2px}
+  .story.ws{border-color:var(--ok);background:rgba(61,220,151,.06)}
+  .story.ws b::before{content:"🦴 ";font-size:11px}
+  .legend{display:flex;gap:18px;font-size:12px;color:var(--dim);margin-top:12px;font-family:var(--mono)}
+  .legend .sq{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+
+  /* ---------- BACKLOG BOARD ---------- */
+  .board-scroll{overflow-x:auto;padding-bottom:8px}
+  .board{display:grid;grid-template-columns:repeat(4,minmax(240px,1fr));gap:12px;min-width:1000px}
+  .bcol{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:10px;min-height:300px}
+  .bcol h3{font-family:var(--mono);font-size:12px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;padding:4px 6px 10px;display:flex;justify-content:space-between}
+  .bcol h3 .wip{color:var(--dim);font-size:11px}
+  .bcol.over{outline:2px dashed var(--accent);outline-offset:-4px}
+  .cards{display:flex;flex-direction:column;gap:8px;min-height:60px}
+
+  .tcard{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px;cursor:grab;transition:transform .12s, box-shadow .12s}
+  .tcard:active{cursor:grabbing}
+  .tcard:hover{transform:translateY(-1px);box-shadow:0 4px 14px rgba(0,0,0,.35)}
+  .tcard.dragging{opacity:.45}
+  .tcard .id{font-family:var(--mono);font-size:10px;color:var(--dim)}
+  .tcard .tt{font-size:13px;font-weight:500;color:var(--ink);margin:3px 0 6px}
+  .tcard .meta{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+  .tag{font-family:var(--mono);font-size:10px;padding:2px 8px;border-radius:20px}
+  .p-alta{background:rgba(255,107,107,.14);color:var(--bad)}
+  .p-media{background:rgba(255,180,84,.14);color:var(--warn)}
+  .p-baja{background:rgba(94,168,255,.14);color:var(--accent)}
+  .ep{background:rgba(180,156,255,.14);color:var(--purple)}
+  .who{margin-left:auto;width:26px;height:26px;border-radius:50%;background:var(--panel-2);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:10px;color:var(--ink)}
+
+  /* ---------- DoR / DoD ---------- */
+  .dd{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media(max-width:760px){.dd{grid-template-columns:1fr}}
+  .ddcard{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px}
+  .ddcard h3{font-size:14px;font-weight:700;margin-bottom:8px}
+  .ddcard h3 span{font-family:var(--mono);font-size:11px;color:var(--dim);font-weight:400}
+  .ddcard li{font-size:12.5px;color:var(--muted);list-style:none;padding:3px 0 3px 18px;position:relative}
+  .ddcard li::before{content:"✓";position:absolute;left:0;color:var(--ok);font-size:11px}
+
+  footer{margin-top:44px;border-top:1px solid var(--line);padding-top:16px;font-family:var(--mono);font-size:11px;color:var(--dim)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">CRISP-ML(Q) · Scrum/Kanban · Story mapping</div>
+  <h1>Story map + backlog priorizado</h1>
+  <div class="sub">Motor de predicción de fraude — walking skeleton y tablero del equipo</div>
+  <div class="nav"><a href="index.html">← Ver dashboard de monitoreo</a></div>
+</header>
+
+<h2>Story map — backbone CRISP-ML(Q)</h2>
+<div class="h2sub">Las tarjetas verdes 🦴 forman el <b>walking skeleton</b>: lo mínimo para tener el flujo real-time → decisión → feedback funcionando de punta a punta.</div>
+
+<div class="smap-scroll">
+<div class="smap">
+  <div class="col">
+    <div class="phase"><div class="ph">Fase I</div><div class="nm">Negocio</div></div>
+    <div class="story ws"><b>Definir SLO y CEF</b>Latencia p99.9 &lt; 100 ms y costo de FN/FP cuantificado.</div>
+    <div class="story"><b>Guard-rails éticos</b>Variables prohibidas, umbral de fairness, canal de apelación.</div>
+  </div>
+  <div class="col">
+    <div class="phase"><div class="ph">Fase II</div><div class="nm">Datos</div></div>
+    <div class="story ws"><b>Ingesta Kafka mínima</b>Evento de transacción fluyendo con schema registry.</div>
+    <div class="story ws"><b>Quality gate de ingesta</b>Integridad, consistencia y schema drift bloqueantes.</div>
+    <div class="story"><b>Linaje completo</b>Datos + código + dependencias + parámetros versionados.</div>
+  </div>
+  <div class="col">
+    <div class="phase"><div class="ph">Fase III</div><div class="nm">Modelo</div></div>
+    <div class="story ws"><b>Modelo baseline</b>Reglas simples + modelo básico que emite un score.</div>
+    <div class="story"><b>Pruebas de robustez</b>Card testing, listas negras, patrones nuevos.</div>
+    <div class="story"><b>Informe XAI + fairness</b>SHAP local, casos límite, FP por provincia.</div>
+  </div>
+  <div class="col">
+    <div class="phase"><div class="ph">Fase IV</div><div class="nm">Despliegue</div></div>
+    <div class="story ws"><b>Pipeline CI/CD a EKS</b>GitHub → Argo CD, imagen versionada.</div>
+    <div class="story"><b>Canary + rollback</b>Argo Rollouts al 5% con rollback automático.</div>
+  </div>
+  <div class="col">
+    <div class="phase"><div class="ph">Fase V</div><div class="nm">Operación</div></div>
+    <div class="story ws"><b>Feedback de chargebacks</b>Etiquetas reales cerrando el loop de reentrenamiento.</div>
+    <div class="story ws"><b>Monitoreo básico (Datadog)</b>Latencia y salud del pipeline con alertas.</div>
+    <div class="story"><b>Drift + CT automático</b>PSI ≥ 0.20 o recall &lt; 85% dispara reentrenar.</div>
+    <div class="story"><b>Monitoreo ético + XAI</b>FP desagregados y vigilancia de features SHAP.</div>
+  </div>
+</div>
+</div>
+<div class="legend">
+  <span><span class="sq" style="background:rgba(61,220,151,.5)"></span>walking skeleton (primero)</span>
+  <span><span class="sq" style="background:var(--panel);border:1px solid var(--line)"></span>iteraciones siguientes</span>
+</div>
+
+<h2>Backlog del equipo — tablero Kanban</h2>
+<div class="h2sub">Arrastra las tarjetas entre columnas. Límites de WIP visibles en cada columna — máx. 1 canary a la vez.</div>
+
+<div class="board-scroll">
+<div class="board">
+  <div class="bcol" data-col>
+    <h3>Backlog <span class="wip">sin límite</span></h3>
+    <div class="cards">
+      <div class="tcard" draggable="true"><div class="id">US-08</div><div class="tt">Pruebas adversariales (card testing, listas negras)</div><div class="meta"><span class="tag ep">Modelo</span><span class="tag p-media">media</span><span class="who" title="Alejandro Grijalva">AG</span></div></div>
+      <div class="tcard" draggable="true"><div class="id">US-09</div><div class="tt">Informe XAI (SHAP) + análisis de fairness</div><div class="meta"><span class="tag ep">Modelo</span><span class="tag p-media">media</span><span class="who" title="Alejandro Grijalva">AG</span></div></div>
+      <div class="tcard" draggable="true"><div class="id">US-11</div><div class="tt">Reentrenamiento automático (CT) por drift</div><div class="meta"><span class="tag ep">Operación</span><span class="tag p-baja">baja</span><span class="who" title="Oscar Montero">OM</span></div></div>
+      <div class="tcard" draggable="true"><div class="id">US-12</div><div class="tt">Monitoreo ético: FP por provincia en Datadog</div><div class="meta"><span class="tag ep">Operación</span><span class="tag p-baja">baja</span><span class="who" title="Bryan Rojas">BR</span></div></div>
+    </div>
+  </div>
+  <div class="bcol" data-col data-wip="3">
+    <h3>En progreso <span class="wip">WIP ≤ 3</span></h3>
+    <div class="cards">
+      <div class="tcard" draggable="true"><div class="id">US-05</div><div class="tt">Modelo baseline emitiendo score en tiempo real</div><div class="meta"><span class="tag ep">Modelo</span><span class="tag p-alta">alta</span><span class="who" title="Alejandro Grijalva">AG</span></div></div>
+      <div class="tcard" draggable="true"><div class="id">US-06</div><div class="tt">Pipeline CI/CD: GitHub → Argo CD → EKS</div><div class="meta"><span class="tag ep">Despliegue</span><span class="tag p-alta">alta</span><span class="who" title="Oscar Montero">OM</span></div></div>
+      <div class="tcard" draggable="true"><div class="id">US-07</div><div class="tt">Feedback loop de chargebacks (etiquetas reales)</div><div class="meta"><span class="tag ep">Operación</span><span class="tag p-alta">alta</span><span class="who" title="Luis Beneras">LB</span></div></div>
+    </div>
+  </div>
+  <div class="bcol" data-col data-wip="1">
+    <h3>Canary / validación <span class="wip">WIP ≤ 1</span></h3>
+    <div class="cards">
+      <div class="tcard" draggable="true"><div class="id">US-04</div><div class="tt">Quality gate de ingesta (schema drift bloqueante)</div><div class="meta"><span class="tag ep">Datos</span><span class="tag p-alta">alta</span><span class="who" title="Luis Beneras">LB</span></div></div>
+    </div>
+  </div>
+  <div class="bcol" data-col>
+    <h3>Hecho <span class="wip">✓</span></h3>
+    <div class="cards">
+      <div class="tcard" draggable="true"><div class="id">US-01</div><div class="tt">SLO de latencia y CEF definidos con negocio</div><div class="meta"><span class="tag ep">Negocio</span><span class="tag p-alta">alta</span><span class="who" title="Andrea Beneras">AB</span></div></div>
+      <div class="tcard" draggable="true"><div class="id">US-02</div><div class="tt">Guard-rails éticos aprobados por el PO</div><div class="meta"><span class="tag ep">Negocio</span><span class="tag p-alta">alta</span><span class="who" title="Andrea Beneras">AB</span></div></div>
+      <div class="tcard" draggable="true"><div class="id">US-03</div><div class="tt">Ingesta Kafka con schema registry</div><div class="meta"><span class="tag ep">Datos</span><span class="tag p-alta">alta</span><span class="who" title="Luis Beneras">LB</span></div></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<h2>DoR / DoD</h2>
+<div class="dd">
+  <div class="ddcard">
+    <h3>Definition of Ready <span>— para entrar al sprint</span></h3>
+    <ul>
+      <li>Historia con criterios de aceptación medibles</li>
+      <li>Datos necesarios identificados y accesibles</li>
+      <li>Impacto en SLO/CEF estimado</li>
+      <li>Riesgo ético evaluado (¿toca variables sensibles?)</li>
+    </ul>
+  </div>
+  <div class="ddcard">
+    <h3>Definition of Done <span>— para llegar a producción</span></h3>
+    <ul>
+      <li>Métricas mínimas cumplidas (recall, F1/F2)</li>
+      <li>Pruebas de robustez y seguridad superadas</li>
+      <li>SLO de latencia validado bajo carga</li>
+      <li>Linaje completo + informe XAI/fairness aprobado</li>
+      <li>Pasó canary sin disparar rollback</li>
+    </ul>
+  </div>
+</div>
+
+<footer>Equipo: Andrea Beneras (PO) · Luis Beneras (Data Eng) · Alejandro Grijalva (DS) · Oscar Montero (MLOps) · Bryan Rojas (QA) · datos simulados</footer>
+</div>
+
+<script>
+let dragged = null;
+document.querySelectorAll('.tcard').forEach(c => {
+  c.addEventListener('dragstart', () => { dragged = c; c.classList.add('dragging'); });
+  c.addEventListener('dragend', () => { c.classList.remove('dragging'); dragged = null; document.querySelectorAll('.bcol').forEach(b=>b.classList.remove('over')); });
+});
+document.querySelectorAll('.bcol').forEach(col => {
+  const zone = col.querySelector('.cards');
+  col.addEventListener('dragover', e => {
+    e.preventDefault();
+    const wip = parseInt(col.dataset.wip || '99');
+    const count = zone.children.length + (zone.contains(dragged) ? 0 : 1);
+    col.classList.toggle('over', count <= wip);
+  });
+  col.addEventListener('dragleave', () => col.classList.remove('over'));
+  col.addEventListener('drop', e => {
+    e.preventDefault(); col.classList.remove('over');
+    if (!dragged) return;
+    const wip = parseInt(col.dataset.wip || '99');
+    if (!zone.contains(dragged) && zone.children.length >= wip) {
+      col.animate([{outline:'2px solid var(--bad)'},{outline:'none'}],{duration:500});
+      return;
+    }
+    zone.appendChild(dragged);
+  });
+});
+</script>
+</body>
+</html>

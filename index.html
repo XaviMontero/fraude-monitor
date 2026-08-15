@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Motor de Predicción de Fraude — Monitoreo Operacional</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#0C1220; --panel:#131C2E; --panel-2:#1A2540; --line:#243252;
+    --ink:#E8EDF7; --muted:#8FA0BF; --dim:#5C6C8A;
+    --ok:#3DDC97; --warn:#FFB454; --bad:#FF6B6B; --accent:#5EA8FF;
+    --mono:'IBM Plex Mono',monospace; --sans:'Space Grotesk',sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.55;padding-bottom:60px}
+  .wrap{max-width:1100px;margin:0 auto;padding:0 20px}
+
+  header{border-bottom:1px solid var(--line);padding:28px 0 22px;margin-bottom:28px}
+  .eyebrow{font-family:var(--mono);font-size:12px;color:var(--accent);letter-spacing:.12em;text-transform:uppercase}
+  h1{font-size:clamp(22px,3.5vw,32px);font-weight:700;margin-top:6px}
+  .sub{color:var(--muted);font-size:14px;margin-top:4px}
+  .live{display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:12px;color:var(--ok);margin-top:10px}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--ok)}
+  @media (prefers-reduced-motion: no-preference){.dot{animation:pulse 1.6s ease-in-out infinite}@keyframes pulse{50%{opacity:.35}}}
+
+  h2{font-size:16px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-family:var(--mono);margin:34px 0 14px;font-size:13px}
+
+  /* Gates strip */
+  .gates{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+  .gate{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+  .gate .ph{font-family:var(--mono);font-size:11px;color:var(--dim)}
+  .gate .nm{font-size:13px;font-weight:500;margin:2px 0 6px}
+  .badge{display:inline-block;font-family:var(--mono);font-size:11px;padding:2px 8px;border-radius:20px}
+  .b-ok{background:rgba(61,220,151,.12);color:var(--ok)}
+  .b-warn{background:rgba(255,180,84,.14);color:var(--warn)}
+
+  /* KPI cards */
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
+  .kpi{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px}
+  .kpi .lbl{font-size:12px;color:var(--muted)}
+  .kpi .val{font-family:var(--mono);font-size:26px;font-weight:500;margin-top:4px}
+  .kpi .cmp{font-family:var(--mono);font-size:11px;margin-top:4px;color:var(--dim)}
+  .g{color:var(--ok)}.y{color:var(--warn)}.r{color:var(--bad)}
+
+  /* Charts */
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:800px){.grid2{grid-template-columns:1fr}.gates{grid-template-columns:1fr 1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px}
+  .card h3{font-size:14px;font-weight:500;margin-bottom:2px}
+  .card .note{font-size:12px;color:var(--dim);margin-bottom:10px}
+  .chartbox{position:relative;height:220px}
+
+  /* Alerts table */
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{text-align:left;font-family:var(--mono);font-size:11px;color:var(--dim);font-weight:400;padding:8px 10px;border-bottom:1px solid var(--line)}
+  td{padding:9px 10px;border-bottom:1px solid var(--line);color:var(--muted)}
+  td:first-child{color:var(--ink)}
+  td.mono{font-family:var(--mono);font-size:12px}
+  tr:last-child td{border-bottom:none}
+
+  /* Team */
+  .team{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+  .member{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;border-top:3px solid var(--accent)}
+  .member .role{font-family:var(--mono);font-size:11px;color:var(--accent);text-transform:uppercase;letter-spacing:.08em}
+  .member .name{font-weight:700;font-size:15px;margin:4px 0 8px}
+  .member ul{list-style:none}
+  .member li{font-size:12.5px;color:var(--muted);padding:3px 0 3px 14px;position:relative}
+  .member li::before{content:"›";position:absolute;left:0;color:var(--dim)}
+
+  footer{margin-top:44px;border-top:1px solid var(--line);padding-top:16px;font-family:var(--mono);font-size:11px;color:var(--dim)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">CRISP-ML(Q) · Fase V · QA operacional</div>
+  <h1>Motor de predicción de fraude</h1>
+  <div class="sub">Panel de monitoreo y mantenimiento — datos simulados con fines académicos</div>
+  <div class="live"><span class="dot"></span> monitoreo activo · <span id="clock"></span></div>
+</header>
+
+<h2>Quality gates por fase</h2>
+<div class="gates">
+  <div class="gate"><div class="ph">Fase I</div><div class="nm">Negocio</div><span class="badge b-ok">SLO definido</span></div>
+  <div class="gate"><div class="ph">Fase II</div><div class="nm">Datos</div><span class="badge b-ok">Gate ingesta OK</span></div>
+  <div class="gate"><div class="ph">Fase III</div><div class="nm">Modelo</div><span class="badge b-ok">DoD cumplido</span></div>
+  <div class="gate"><div class="ph">Fase IV</div><div class="nm">Despliegue</div><span class="badge b-ok">Canary 100%</span></div>
+  <div class="gate"><div class="ph">Fase V</div><div class="nm">Operación</div><span class="badge b-warn">1 alerta activa</span></div>
+</div>
+
+<h2>Indicadores en vivo (SLI vs SLO)</h2>
+<div class="kpis">
+  <div class="kpi"><div class="lbl">Latencia p99.9</div><div class="val g" id="k-lat">—</div><div class="cmp">SLO &lt; 100 ms</div></div>
+  <div class="kpi"><div class="lbl">Recall (7 días)</div><div class="val g" id="k-rec">—</div><div class="cmp">mínimo ≥ 85%</div></div>
+  <div class="kpi"><div class="lbl">Tasa falsos positivos</div><div class="val g" id="k-fp">—</div><div class="cmp">máximo ≤ 1.2%</div></div>
+  <div class="kpi"><div class="lbl">Data drift (PSI máx)</div><div class="val y" id="k-psi">—</div><div class="cmp">reentrena si ≥ 0.20</div></div>
+  <div class="kpi"><div class="lbl">CEF proyectado / mes</div><div class="val g" id="k-cef">—</div><div class="cmp">baseline $280k</div></div>
+</div>
+
+<h2>Deriva y desempeño</h2>
+<div class="grid2">
+  <div class="card">
+    <h3>Latencia de inferencia p99.9</h3>
+    <div class="note">Línea punteada = SLO (100 ms). Fuera de SLO sostenido dispara rollback.</div>
+    <div class="chartbox"><canvas id="ch-lat"></canvas></div>
+  </div>
+  <div class="card">
+    <h3>Data drift por feature (PSI)</h3>
+    <div class="note">PSI ≥ 0.20 dispara el pipeline de reentrenamiento (CT).</div>
+    <div class="chartbox"><canvas id="ch-psi"></canvas></div>
+  </div>
+  <div class="card">
+    <h3>Recall vs precisión (30 días)</h3>
+    <div class="note">Caída de recall = fraude escapándose (model/concept drift).</div>
+    <div class="chartbox"><canvas id="ch-rp"></canvas></div>
+  </div>
+  <div class="card">
+    <h3>Monitoreo ético — FP por provincia</h3>
+    <div class="note">Ningún grupo debe superar 1.25× la tasa promedio (línea punteada).</div>
+    <div class="chartbox"><canvas id="ch-fair"></canvas></div>
+  </div>
+</div>
+
+<h2>Alertas y criterios de reentrenamiento (CT)</h2>
+<div class="card">
+  <table>
+    <thead><tr><th>Alerta</th><th>Umbral</th><th>Acción automática</th><th>Estado</th></tr></thead>
+    <tbody>
+      <tr><td>Latencia fuera de SLO</td><td class="mono">p99.9 &gt; 100 ms × 5 min</td><td>Rollback al modelo anterior</td><td class="mono g">OK</td></tr>
+      <tr><td>Data drift</td><td class="mono">PSI ≥ 0.20 en feature clave</td><td>Dispara reentrenamiento (CT)</td><td class="mono y">WARN — monto_promedio_30d</td></tr>
+      <tr><td>Model drift</td><td class="mono">Recall &lt; 85% (feedback chargebacks)</td><td>Dispara reentrenamiento (CT)</td><td class="mono g">OK</td></tr>
+      <tr><td>Fairness</td><td class="mono">FP grupo &gt; 1.25× promedio</td><td>Alerta a QA ético + revisión PO</td><td class="mono g">OK</td></tr>
+      <tr><td>Explicabilidad (XAI)</td><td class="mono">Cambio brusco en top features SHAP</td><td>Revisión manual del modelo</td><td class="mono g">OK</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h2>Equipo y responsabilidades</h2>
+<div class="team">
+  <div class="member">
+    <div class="role">Product Owner IA</div>
+    <div class="name">Andrea Beneras Rivera</div>
+    <ul>
+      <li>Define SLOs y CEF con negocio</li>
+      <li>Prioriza el backlog por valor y riesgo</li>
+      <li>Decide reentrenar, ajustar o retirar el modelo</li>
+      <li>Aprueba el informe de fairness</li>
+    </ul>
+  </div>
+  <div class="member">
+    <div class="role">Data Engineer</div>
+    <div class="name">Luis Beneras Rivera</div>
+    <ul>
+      <li>Pipeline de ingesta (Kafka) y feature store</li>
+      <li>Quality gate de ingesta y schema registry</li>
+      <li>Linaje y versionado de datos</li>
+    </ul>
+  </div>
+  <div class="member">
+    <div class="role">Data Scientist</div>
+    <div class="name">Alejandro Grijalva Mora</div>
+    <ul>
+      <li>Entrenamiento y evaluación (recall, F1/F2)</li>
+      <li>Pruebas de robustez y adversariales</li>
+      <li>Informe XAI (SHAP) y casos límite</li>
+    </ul>
+  </div>
+  <div class="member">
+    <div class="role">MLOps Engineer</div>
+    <div class="name">Oscar Montero Campoverde</div>
+    <ul>
+      <li>Pipeline CI/CD/CT (GitHub → Argo → EKS)</li>
+      <li>Canary, rollback y límites de WIP</li>
+      <li>Umbrales de alertas y automatización</li>
+    </ul>
+  </div>
+  <div class="member">
+    <div class="role">QA / Monitoreo ético</div>
+    <div class="name">Bryan Rojas Acevedo</div>
+    <ul>
+      <li>Este dashboard: drift, SLO y fairness</li>
+      <li>Métricas desagregadas por provincia</li>
+      <li>Auditoría de trazabilidad y cumplimiento</li>
+    </ul>
+  </div>
+</div>
+
+<footer>Caso: motor de predicción de fraude · CRISP-ML(Q) + Scrum/Kanban · datos simulados</footer>
+</div>
+
+<script>
+document.getElementById('clock').textContent = new Date().toLocaleString('es-EC');
+
+const kLat=97, kRec=88.4, kFp=0.9, kPsi=0.18, kCef=152;
+document.getElementById('k-lat').textContent = kLat+' ms';
+document.getElementById('k-rec').textContent = kRec+'%';
+document.getElementById('k-fp').textContent = kFp+'%';
+document.getElementById('k-psi').textContent = kPsi.toFixed(2);
+document.getElementById('k-cef').textContent = '$'+kCef+'k';
+
+const css = getComputedStyle(document.documentElement);
+const C = n => css.getPropertyValue(n).trim();
+Chart.defaults.color = C('--muted');
+Chart.defaults.borderColor = C('--line');
+Chart.defaults.font.family = "'IBM Plex Mono', monospace";
+Chart.defaults.font.size = 11;
+
+const hours = Array.from({length:24},(_,i)=> (i)+':00');
+const lat = hours.map((_,i)=> 78 + Math.round(14*Math.sin(i/3)) + Math.round(Math.random()*10) + (i>18?8:0));
+
+new Chart(document.getElementById('ch-lat'),{
+  type:'line',
+  data:{labels:hours,datasets:[
+    {label:'p99.9 (ms)',data:lat,borderColor:C('--accent'),backgroundColor:'rgba(94,168,255,.08)',fill:true,tension:.35,pointRadius:0,borderWidth:2},
+    {label:'SLO 100 ms',data:hours.map(()=>100),borderColor:C('--bad'),borderDash:[6,5],pointRadius:0,borderWidth:1.5}
+  ]},
+  options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{boxWidth:10}}},scales:{y:{min:50,max:130}}}
+});
+
+new Chart(document.getElementById('ch-psi'),{
+  type:'bar',
+  data:{labels:['monto_prom_30d','frecuencia_tx','hora_tx','dispositivo','provincia','canal'],
+    datasets:[{label:'PSI',data:[0.18,0.11,0.07,0.05,0.04,0.02],
+      backgroundColor:['rgba(255,180,84,.65)','rgba(94,168,255,.45)','rgba(94,168,255,.45)','rgba(94,168,255,.45)','rgba(94,168,255,.45)','rgba(94,168,255,.45)'],
+      borderRadius:4}]},
+  options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',
+    plugins:{legend:{display:false},annotation:undefined},
+    scales:{x:{min:0,max:0.3,grid:{color:C('--line')}}}}
+});
+
+const days = Array.from({length:30},(_,i)=>'d'+(i+1));
+new Chart(document.getElementById('ch-rp'),{
+  type:'line',
+  data:{labels:days,datasets:[
+    {label:'Recall %',data:days.map((_,i)=> 90 - i*0.06 + Math.random()*1.4),borderColor:C('--ok'),pointRadius:0,tension:.3,borderWidth:2},
+    {label:'Precisión %',data:days.map(()=> 62 + Math.random()*3),borderColor:C('--warn'),pointRadius:0,tension:.3,borderWidth:2},
+    {label:'Mín. recall 85%',data:days.map(()=>85),borderColor:C('--bad'),borderDash:[6,5],pointRadius:0,borderWidth:1.5}
+  ]},
+  options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{boxWidth:10}}},scales:{y:{min:55,max:95}}}
+});
+
+const provs=['Guayas','Pichincha','Azuay','Manabí','El Oro','Esmeraldas','Cañar'];
+const fpData=[0.9,0.85,0.8,1.0,0.95,1.05,0.9];
+const avg = fpData.reduce((a,b)=>a+b,0)/fpData.length;
+new Chart(document.getElementById('ch-fair'),{
+  type:'bar',
+  data:{labels:provs,datasets:[
+    {label:'Tasa FP %',data:fpData,backgroundColor:'rgba(61,220,151,.55)',borderRadius:4},
+    {label:'Límite 1.25× prom.',type:'line',data:provs.map(()=> +(avg*1.25).toFixed(2)),borderColor:C('--bad'),borderDash:[6,5],pointRadius:0,borderWidth:1.5}
+  ]},
+  options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{boxWidth:10}}},scales:{y:{min:0,max:1.6}}}
+});
+</script>
+</body>
+</html>
